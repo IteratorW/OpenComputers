@@ -1,6 +1,6 @@
 {
   {
-      url = "https://raw.githubusercontent.com/rrrGame/OpenComputers/master/Applications/Interstellar/Installer.lua",
+      url = "https://raw.githubusercontent.com/rrrGame/OpenComputers/master/Applications/Interstellar/Interstellar.lua",
       path = "/Interstellar.lua"
   },
   {

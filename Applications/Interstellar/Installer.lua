@@ -239,10 +239,4 @@ if properties.localization.finished1 then
 end
 
 -- Redraw old pixels
-for y = properties.windowY, properties.windowY + properties.windowHeight do
-	for x = properties.windowX, properties.windowX + properties.windowWidth do
-		setBackground(oldPixels[y][x][3])
-		setForeground(oldPixels[y][x][2])
-		gpu.set(x, y, oldPixels[y][x][1])
-	end
-end
+os.execute("/Interstellar.lua")

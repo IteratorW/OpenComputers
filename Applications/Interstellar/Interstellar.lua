@@ -9,7 +9,7 @@ local shell = require("shell")
 local ship = comp.warpdriveShipController
 --Переменные, массивы, прочая хрень
 
-local version = "1.4"
+local version = "1.5"
 local configPath = "/Interstellar/config.cfg"
 radartable = {}
 buffer.setResolution(80,25)
@@ -18,6 +18,8 @@ local config = {
     loggingEnabled = false,
     requestURL = "",
     requestStructure = "",
+    fileLoggingEnabled = false,
+    logFile = "/Interstellar/log.txt"
 }
 
 local colors = {
@@ -57,10 +59,18 @@ local function loadConfig()
     file:close()
 end
 
-local function request(data)
-    if not config.loggingEnabled then return end
-    if not comp.isAvailable("internet") then return end
-    require("internet").request(config.requestURL,config.requestStructure.." "..data)
+local function log(data)
+    if config.loggingEnabled then
+        if not comp.isAvailable("internet") then return end
+        require("internet").request(config.requestURL,config.requestStructure.." "..data)
+    end
+    if config.fileLoggingEnabled then
+        --На всякий случай
+        fs.makeDirectory(fs.path(config.logFile))
+        local file = io.open(config.logFile,"a")
+        file:write(data.."\n")
+        file:close()
+    end
 end
 
 local function wget(url, path)
@@ -78,6 +88,28 @@ end
 local function CoreScreenFix() 
     comp.gpu.bind(comp.screen.address,true) 
     buffer.setResolution(80,25)
+end
+
+--Низкоуровневые GUI функции
+local function warn(text,name,mode)
+    local container = GUI.addBackgroundContainer(mainContainer, true, false)
+    container.panel.colors.transparency = 0.2
+    container:addChild(GUI.panel(16, 6, container.width - 30, 1, colors.window))
+    container:addChild(GUI.text(17, 6, colors.button, name))
+    container:addChild(GUI.panel(16, 7, container.width - 30, container.height - 13, 0xFFFFFF))
+    container:addChild(GUI.image(16, 8, require("image").load("/Interstellar/warn.pic")))
+    local textBox = container:addChild(GUI.textBox(25, 8, 40, 10, 0xFFFFFF, 0x000000, {}, 1, 1, 0,true,true))
+    table.insert(textBox.lines,text)
+    container:addChild(GUI.button(60,17,4,1,colors.button,colors.background,colors.buttonPressed,colors.background,'Oк')).onTouch = function()
+        container:remove()
+        return true
+    end
+    if mode == "CANCEL" then
+        container:addChild(GUI.button(49,17,10,1,colors.buttonNo,colors.background,colors.buttonNoPressed,colors.background,'Отменить')).onTouch = function()
+            container:remove()
+            return false
+        end
+    end
 end
 
 local function drawNav()
@@ -104,21 +136,45 @@ local function drawLoggingSettings()
     navContainer:removeChildren()
     navContainer:addChild(GUI.panel(1, 1, navContainer.width, navContainer.height, colors.window))
     navContainer:addChild(GUI.label(1, 1, 61, 1, colors.button, "Настройки логов")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_CENTER)
-    navContainer:addChild(GUI.text(2,3,colors.button,"Логгирование с помощью POST-запроса"))
-    navContainer:addChild(GUI.switchAndLabel(2, 5, 31, 8, colors.button, 0x1D1D1D, 0xEEEEEE, colors.textColor, "Включить логирование:", config.loggingEnabled)).switch.onStateChanged = function()
-        config.loggingEnabled = true
-        writeConfig()
-    end
-    navContainer:addChild(GUI.label(2, 7, 16, 1, colors.textColor, "Адрес для запросов"))
-    navContainer:addChild(GUI.input(2, 8, 30, 1, 0xEEEEEE, 0x555555, 0x999999, 0xFFFFFF, 0x2D2D2D, config.requestURL, "URL")).onInputFinished = function(navContainer, input, eventData, text)
-        config.requestURL = input.text
-        writeConfig()
-    end 
-    navContainer:addChild(GUI.label(2, 10, 16, 1, colors.textColor, "Структура запроса (текст в начале)"))
-    navContainer:addChild(GUI.input(2, 11, 30, 1, 0xEEEEEE, 0x555555, 0x999999, 0xFFFFFF, 0x2D2D2D, config.requestStructure, "text:any()")).onInputFinished = function(navContainer, input, eventData, text)
+    navContainer:addChild(GUI.text(2,3,colors.button,"Основные настройки"))
+    navContainer:addChild(GUI.label(2, 5, 16, 1, colors.textColor, "Структура сообщения (текст вначале)"))
+    navContainer:addChild(GUI.input(2, 6, 30, 1, 0xEEEEEE, 0x555555, 0x999999, 0xFFFFFF, 0x2D2D2D, config.requestStructure, "text:any()")).onInputFinished = function(navContainer, input, eventData, text)
         config.requestStructure = input.text
         writeConfig()
     end
+    navContainer:addChild(GUI.text(2,8,colors.button,"Логирование с помощью POST-запроса"))
+    navContainer:addChild(GUI.switchAndLabel(2, 10, 31, 8, colors.button, 0x1D1D1D, 0xEEEEEE, colors.textColor, "Включить:", config.loggingEnabled)).switch.onStateChanged = function()
+        config.loggingEnabled = true
+        writeConfig()
+    end
+    navContainer:addChild(GUI.label(2, 12, 16, 1, colors.textColor, "Адрес для запросов"))
+    navContainer:addChild(GUI.input(2, 13, 30, 1, 0xEEEEEE, 0x555555, 0x999999, 0xFFFFFF, 0x2D2D2D, config.requestURL, "URL")).onInputFinished = function(navContainer, input, eventData, text)
+        config.requestURL = input.text
+        writeConfig()
+    end 
+    navContainer:addChild(GUI.text(2,15,colors.button,"Логирование в файл"))
+    navContainer:addChild(GUI.switchAndLabel(2, 17, 31, 8, colors.button, 0x1D1D1D, 0xEEEEEE, colors.textColor, "Включить:", config.fileLoggingEnabled)).switch.onStateChanged = function()
+        config.fileLoggingEnabled = true
+        writeConfig()
+    end
+    navContainer:addChild(GUI.label(2, 19, 16, 1, colors.textColor, "Путь до файла"))
+    navContainer:addChild(GUI.input(2, 20, 30, 1, 0xEEEEEE, 0x555555, 0x999999, 0xFFFFFF, 0x2D2D2D, config.logFile or "/Interstellar/log.txt", "Путь до файла")).onInputFinished = function(navContainer, input, eventData, text)
+        config.logFile = input.text
+        writeConfig()
+    end 
+    navContainer:addChild(GUI.button(navContainer.width-10,navContainer.height-1,10,1,colors.button,colors.background,colors.buttonPressed,colors.background,'Тест-лог')).onTouch = function()
+        log("Test log!")
+    end
+end
+
+local function drawAbout()
+    navContainer:removeChildren()
+    navContainer:addChild(GUI.panel(1, 1, navContainer.width, navContainer.height, colors.window))
+    navContainer:addChild(GUI.label(1, 1, 61, 1, colors.button, "О программе")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_CENTER)
+    navContainer:addChild(GUI.text(2, 3, colors.textColor, "Interstellar v1.5"))
+    navContainer:addChild(GUI.text(2, 4, colors.textColor, "Автор: rrr_game"))
+    navContainer:addChild(GUI.text(2, 6, colors.textColor, "Благодарности:"))
+    navContainer:addChild(GUI.text(2, 7, colors.textColor, "Noki - антифриз для компьютера"))
 end
 
 local function drawShipSettings()
@@ -164,7 +220,7 @@ local function drawShipSettings()
     end
     navContainer:addChild(GUI.button(2,navContainer.height-1,19,1,colors.button,colors.background,colors.buttonPressed,colors.background,'Применить размеры')).onTouch = function()
         if front == 0 or back == 0 or up == 0 or down == 0 or left == 0 or right == 0 then
-            GUI.alert("Размеры заполнены неправильно!")
+            warn("Размеры заданы неправильно","Ошибка!")
             return
         end
         ship.dim_negative(back,left,down)
@@ -174,7 +230,7 @@ end
 
 local function drawUpdate()
     if not comp.isAvailable("internet") then
-        GUI.alert("Для работы этой функции необходима интернет-карта!")
+        warn("Для работы этой функции необходима интернет-карта!","Ошибка!")
         return
     end
     local b = require("internet").request("https://raw.githubusercontent.com/rrrGame/OpenComputers/master/Applications/Interstellar/version.txt")
@@ -230,20 +286,19 @@ local function drawUpdate()
     end
 end
 
-local function drawAbout()
-    navContainer:removeChildren()
-    navContainer:addChild(GUI.panel(1, 1, navContainer.width, navContainer.height, colors.window))
-    navContainer:addChild(GUI.label(1, 1, mainContainer.width, mainContainer.height, colors.textColor, "Interstellar\nВерсия 0.5\nАвтор: rrr_game"))
-end
-
 local function antiFreeze()
     local antiFreezeTimer = require("event").timer(1,CoreScreenFix,math.huge)
-    local fade = mainContainer:addChild(GUI.panel(1, 1, mainContainer.width, mainContainer.height, 0x000000,0.1))
-    mainContainer:addChild(GUI.framedButton(1, 1, mainContainer.width-1, mainContainer.height-1, 0x1a1a1a, 0xFFFFFF, 0x1a1a1a, 0xFFFFFF, "Выполняется прыжок...\nНажмите на экран по завершению")).onTouch = function(mainContainer,button)
+    local container = GUI.addBackgroundContainer(mainContainer, true, false)
+    container.panel.colors.transparency = 0.2
+    container:addChild(GUI.panel(16, 6, container.width - 30, 1, colors.window))
+    container:addChild(GUI.text(17, 6, colors.button, "Антифриз"))
+    container:addChild(GUI.panel(16, 7, container.width - 30, container.height - 13, 0xFFFFFF))
+    container:addChild(GUI.image(16, 8, require("image").load("/Interstellar/warn.pic")))
+    local textBox = container:addChild(GUI.textBox(25, 8, 40, 10, 0xFFFFFF, 0x000000, {}, 1, 1, 0,true,true))
+    table.insert(textBox.lines,"Включена защита от зависания компьютера. Нажмите на кнопку \"Завершить\" для отключения этого режима.")
+    container:addChild(GUI.button(54,17,11,1,colors.button,colors.background,colors.buttonPressed,colors.background,'Завершить')).onTouch = function()
         require("event").cancel(antiFreezeTimer)
-        button:remove()
-        fade:remove()
-        drawNav()
+        container:remove()
     end
 end
 
@@ -295,20 +350,20 @@ local function drawJump()
         if rot <= -rotmax then rot = -rotmax input.text = rot return end
     end
     navContainer:addChild(GUI.button(2, 18, 29, 3, colors.button, colors.textColor2, colors.buttonPressed, colors.textColor2, "Совершить прыжок")).onTouch = function()
-        if jumpX == 0 and jumpY == 0 and jumpZ == 0 and rot == 0 then GUI.alert("Не введены координаты!") return end
+        if jumpX == 0 and jumpY == 0 and jumpZ == 0 and rot == 0 then warn("Не введены координаты!","Ошибка!") return end
         ship.command("MANUAL")
         ship.rotationSteps(rot)
         ship.movement(jumpX,jumpY,jumpZ)
         ship.enable(true)
         local xp,yp,zp = ship.position()
-        request("Ship is jumping on these axis: "..jumpX..", "..jumpY..", "..jumpZ..". New coordinates: "..xp+jumpX..", "..yp+jumpY..", "..zp+jumpZ..".")
+        log("Ship is jumping on these axis: "..jumpX..", "..jumpY..", "..jumpZ..". New coordinates: "..xp+jumpX..", "..yp+jumpY..", "..zp+jumpZ..".")
         antiFreeze()
     end
     navContainer:addChild(GUI.button(33, 18, 29, 3, colors.button, colors.textColor2, colors.buttonPressed, colors.textColor2, "Совершить гипер-переход")).onTouch = function()
         ship.command("HYPERDRIVE")
         ship.enable(true)
         local xp,yp,zp = ship.position()
-        request("Ship is switching hyper at these coordinates: "..xp..', '..yp..', '..zp..'.')
+        log("Ship is switching hyper at these coordinates: "..xp..', '..yp..', '..zp..'.')
         antiFreeze()
     end
 end
@@ -342,7 +397,7 @@ local function drawInfo()
 end
 
 local function drawRadar()
-    if not comp.isAvailable("warpdriveRadar") then GUI.alert("Для работы этой функции необходим подключенный варп-радар!") return end
+    if not comp.isAvailable("warpdriveRadar") then warn("Для работы этой функции необходим подключенный варп-радар!","Ошибка!") return end
     navContainer:removeChildren()
     local max = 9999
     local radius = 1
@@ -360,7 +415,7 @@ local function drawRadar()
         if radius < 1 then radius = 1 input.text = radius end
     end
     navContainer:addChild(GUI.button(33, 7, 29, 1, colors.button, colors.background, colors.buttonPressed, 0xFFFFFF, "Сканировать")).onTouch = function(navContainer, button, eventData, text)
-        if comp.warpdriveRadar.getEnergyRequired(radius) > comp.warpdriveRadar.energy() then GUI.alert("Ошибка: недостаточно энергии.\nНакоплено "..comp.warpdriveRadar.energy().." EU\nНеобходимо еще "..comp.warpdriveRadar.getEnergyRequired(radius) - comp.warpdriveRadar.energy().." EU") return end
+        if comp.warpdriveRadar.getEnergyRequired(radius) > comp.warpdriveRadar.energy() then warn("Ошибка: недостаточно энергии.\nНакоплено "..comp.warpdriveRadar.energy().." EU\nНеобходимо еще "..comp.warpdriveRadar.getEnergyRequired(radius) - comp.warpdriveRadar.energy().." EU","Ошибка!") return end
         comp.warpdriveRadar.radius(radius)
         comp.warpdriveRadar.start()
         os.sleep(0.5)
@@ -377,7 +432,7 @@ local function drawRadar()
         until (count ~= nil and count ~= -1) or delay > 10
         if count ~= nil and count > 0 then
             for i=0,count-1 do
-                success, type, name, x, y, z = comp.warpdriveRadar.getResult(i)
+                local success, type, name, x, y, z = comp.warpdriveRadar.getResult(i)
                 if success then
                     table.insert(textBox.lines,type.." "..name.." ".." @ ("..x.." "..y.." "..z..")")
                 end
@@ -401,7 +456,6 @@ local function drawCrew()
     navContainer:addChild(GUI.button(2, 20, 29, 1, colors.button, colors.textColor2, colors.buttonPressed, colors.textColor2, "Телепортировать по нику")).onTouch = function()
         for i = 1,#players do
             if pl == players[i] then
-                GUI.alert("Sum")
                 ship.command("SUMMON")
                 ship.targetName(pl)
                 ship.enable(true)
@@ -423,7 +477,7 @@ local function drawCrew()
     end 
 end
 local function drawCloak()
-    if not comp.isAvailable("warpdriveCloakingCore") then GUI.alert("Для работы этой функции необходим подключенный маскировщик!") return end
+    if not comp.isAvailable("warpdriveCloakingCore") then warn("Для работы этой функции необходим подключенный маскировщик!","Ошибка!") return end
     navContainer:removeChildren()
     cloak = comp.warpdriveCloakingCore
     navContainer:addChild(GUI.panel(1, 1, navContainer.width, navContainer.height, colors.window))
@@ -436,7 +490,7 @@ local function drawCloak()
     end
     comboBox:addItem("Уровень 1").onTouch = function()
         local valid, msg = cloak.isAssemblyValid()
-        if not valid then GUI.alert("Ошибка! Неверная сборка маскировщика:\n"..msg) return end
+        if not valid then warn("Ошибка! Неверная сборка маскировщика:\n"..msg,"Ошибка!") return end
         cloak.enable(false)
         os.sleep(1)
         cloak.tier(1)
@@ -444,7 +498,7 @@ local function drawCloak()
     end
     comboBox:addItem("Уровень 2").onTouch = function()
         local valid, msg = cloak.isAssemblyValid()
-        if not valid then GUI.alert("Ошибка! Неверная сборка маскировщика:\n"..msg) return end
+        if not valid then warn("Ошибка! Неверная сборка маскировщика:\n"..msg,"Ошибка!") return end
         cloak.enable(false)
         os.sleep(1)
         cloak.tier(2)
@@ -459,11 +513,25 @@ end
 loadConfig()
 --верхняя панель
 
-local menu = mainContainer:addChild(GUI.menu(1, 1, mainContainer.width, colors.panel, 0x666666, colors.buttonPressed, 0xFFFFFF, 0.7))
-menu:addItem("Interstellar", 0x0)
-local mAbout = menu:addItem("О программе")
-local mExit = menu:addItem("Выход")
-local contextMenu = menu:addContextMenu("Настройки")
+local menu = mainContainer:addChild(GUI.menu(1, 1, mainContainer.width, colors.window, colors.textColor, colors.buttonPressed, 0xFFFFFF))
+local Interstellar = menu:addContextMenu("Interstellar")
+Interstellar.colors.default.background = colors.window
+Interstellar.colors.transparency.background = 0
+local contextMenu = menu:addContextMenu("Настройки",0x696969)
+contextMenu.colors.default.background = colors.window
+contextMenu.colors.transparency.background = 0
+local tweaks = menu:addContextMenu("Tweaks",0x696969)
+tweaks.colors.default.background = colors.window
+tweaks.colors.transparency.background = 0
+Interstellar:addItem("О программе").onTouch = function()
+    drawAbout()
+end
+Interstellar:addItem("Выйти").onTouch = function()
+    mainContainer:stopEventHandling()
+    comp.gpu.setBackground(0x000000)
+    comp.gpu.setForeground(0xFFFFFF)
+    require("term").clear()
+end
 contextMenu:addItem("Корабль").onTouch = function()
     drawShipSettings()
 end
@@ -474,13 +542,14 @@ contextMenu:addSeparator()
 contextMenu:addItem("Обновления").onTouch = function()
     drawUpdate()
 end
-mAbout.onTouch = function(eventData)
-    os.sleep(0.5)
-    drawAbout()
+tweaks:addItem("Включить ядро").onTouch = function() 
+    ship.command("IDLE")
 end
-mExit.onTouch = function(eventData)
-    mainContainer:stopEventHandling()
-    os.execute('/bin/sh.lua')
+tweaks:addItem("Выключить ядро").onTouch = function() 
+    ship.command("OFFLINE")
+end
+tweaks:addItem("Включить антифриз").onTouch = function()
+    antiFreeze()
 end
 
 --панель с точками

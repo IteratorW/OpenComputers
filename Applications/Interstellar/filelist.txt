@@ -4,6 +4,10 @@
       path = "/Interstellar.lua"
   },
   {
+      url = "https://raw.githubusercontent.com/rrrGame/OpenComputers/master/Applications/Interstellar/Interstellar/warn.pic",
+      path = "/Interstellar/warn.pic"
+  },
+  {
       url = "https://raw.githubusercontent.com/IgorTimofeev/AdvancedLua/master/AdvancedLua.lua",
       path = "/lib/advancedLua.lua"
   },

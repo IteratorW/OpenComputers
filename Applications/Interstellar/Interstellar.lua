@@ -9,8 +9,9 @@ local shell = require("shell")
 local ship = comp.warpdriveShipController
 --Переменные, массивы, прочая хрень
 
-local version = "1.5"
+local version = "1.52"
 local configPath = "/Interstellar/config.cfg"
+local g = {}
 radartable = {}
 buffer.setResolution(80,25)
 
@@ -112,7 +113,7 @@ local function warn(text,name,mode)
     end
 end
 
-local function drawNav()
+g.drawNav = function()
     infoContainer:removeChildren()
     infoContainer:addChild(GUI.panel(1,1,infoContainer.width,infoContainer.height,colors.button,0.1))
     local sx,sy,sz,planet = ship.position()
@@ -132,7 +133,7 @@ local function drawNav()
     infoContainer:addChild(GUI.label(1,8,15,2,colors.textColor2,pos)):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_CENTER)
 end
 
-local function drawLoggingSettings()
+g.drawLoggingSettings = function()
     navContainer:removeChildren()
     navContainer:addChild(GUI.panel(1, 1, navContainer.width, navContainer.height, colors.window))
     navContainer:addChild(GUI.label(1, 1, 61, 1, colors.button, "Настройки логов")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_CENTER)
@@ -167,7 +168,7 @@ local function drawLoggingSettings()
     end
 end
 
-local function drawAbout()
+g.drawAbout = function()
     navContainer:removeChildren()
     navContainer:addChild(GUI.panel(1, 1, navContainer.width, navContainer.height, colors.window))
     navContainer:addChild(GUI.label(1, 1, 61, 1, colors.button, "О программе")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_CENTER)
@@ -177,7 +178,7 @@ local function drawAbout()
     navContainer:addChild(GUI.text(2, 7, colors.textColor, "Noki - антифриз для компьютера"))
 end
 
-local function drawShipSettings()
+g.drawShipSettings = function()
     local back,left,down = ship.dim_negative()
     local front,right,up = ship.dim_positive()
     navContainer:removeChildren()
@@ -228,7 +229,7 @@ local function drawShipSettings()
     end
 end
 
-local function drawUpdate()
+g.drawUpdate = function()
     if not comp.isAvailable("internet") then
         warn("Для работы этой функции необходима интернет-карта!","Ошибка!")
         return
@@ -286,7 +287,7 @@ local function drawUpdate()
     end
 end
 
-local function antiFreeze()
+g.antiFreeze = function(afterjump)
     local antiFreezeTimer = require("event").timer(1,CoreScreenFix,math.huge)
     local container = GUI.addBackgroundContainer(mainContainer, true, false)
     container.panel.colors.transparency = 0.2
@@ -299,11 +300,13 @@ local function antiFreeze()
     container:addChild(GUI.button(54,17,11,1,colors.button,colors.background,colors.buttonPressed,colors.background,'Завершить')).onTouch = function()
         require("event").cancel(antiFreezeTimer)
         container:remove()
+        g.drawNav()
+        if afterjump then g.drawJump() end
     end
 end
 
 
-local function drawJump()
+g.drawJump = function()
     ship.command("MANUAL")
     local _,max = ship.getMaxJumpDistance()
     local x,y,z = ship.dim_positive()
@@ -312,9 +315,7 @@ local function drawJump()
     local mindy = z + z2
     local mindz = y + y2
     local rotmax = 270
-    local jumpX = 0
-    local jumpY = 0
-    local jumpZ = 0
+    local jumpX, jumpY, jumpZ = ship.movement()
     local rot = 0
     local type
     navContainer:removeChildren()
@@ -322,21 +323,21 @@ local function drawJump()
     navContainer:addChild(GUI.label(1, 1, 61, 1, colors.button, "Прыжок")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_CENTER)
     navContainer:addChild(GUI.label(2, 4, 8, 1, 0x555555, "Введенные значения будут ограничены автоматически."))
     navContainer:addChild(GUI.label(2, 6, 16, 1, colors.textColor, "Ось перед-зад ("..mindx.." - "..tostring(max + mindx)..")"))
-    navContainer:addChild(GUI.input(2, 7, 30, 1, 0xEEEEEE, 0x555555, 0x999999, 0xFFFFFF, 0x2D2D2D, "0", "X")).onInputFinished = function(navContainer, input, eventData, text)
+    navContainer:addChild(GUI.input(2, 7, 30, 1, 0xEEEEEE, 0x555555, 0x999999, 0xFFFFFF, 0x2D2D2D, jumpX, "X")).onInputFinished = function(navContainer, input, eventData, text)
         jumpX = tonumber(input.text)
         if not jumpX then input.text = "" input.placeholderText = "Введите число!" jumpX = 0 return end
         if jumpX >= max + mindx then jumpX = max + mindx input.text = jumpX return end
         if jumpX <= -max + -mindx then jumpX = -max + -mindx input.text = jumpX return end
     end    
     navContainer:addChild(GUI.label(2, 9, 12, 1, colors.textColor, "Ось верх-низ ("..mindy.." - "..tostring(max + mindy)..")"))
-    navContainer:addChild(GUI.input(2, 10, 30, 1, 0xEEEEEE, 0x555555, 0x999999, 0xFFFFFF, 0x2D2D2D, "0", "Y")).onInputFinished = function(navContainer, input, eventData, text)
+    navContainer:addChild(GUI.input(2, 10, 30, 1, 0xEEEEEE, 0x555555, 0x999999, 0xFFFFFF, 0x2D2D2D, jumpY, "Y")).onInputFinished = function(navContainer, input, eventData, text)
         jumpY = tonumber(input.text)
         if not jumpY then input.text = "" input.placeholderText = "Введите число!" jumpY = 0 return end
         if jumpY >= max + mindy then jumpY = max + mindy input.text = jumpY return end
         if jumpY <= -max + -mindy then jumpY = -max + -mindy input.text = jumpY return end
     end    
     navContainer:addChild(GUI.label(2, 12, 14, 1, colors.textColor, "Ось лево-право ("..mindz.." - "..tostring(max + mindz)..")"))
-    navContainer:addChild(GUI.input(2, 13, 30, 1, 0xEEEEEE, 0x555555, 0x999999, 0xFFFFFF, 0x2D2D2D, "0", "Z")).onInputFinished = function(navContainer, input, eventData, text)
+    navContainer:addChild(GUI.input(2, 13, 30, 1, 0xEEEEEE, 0x555555, 0x999999, 0xFFFFFF, 0x2D2D2D, jumpZ, "Z")).onInputFinished = function(navContainer, input, eventData, text)
         jumpZ = tonumber(input.text)
         if not jumpZ then input.text = "" input.placeholderText = "Введите число!" jumpZ = 0 return end
         if jumpZ >= max + mindz then jumpZ = max + mindz input.text = jumpZ return end
@@ -356,19 +357,19 @@ local function drawJump()
         ship.movement(jumpX,jumpY,jumpZ)
         ship.enable(true)
         local xp,yp,zp = ship.position()
-        log("Ship is jumping on these axis: "..jumpX..", "..jumpY..", "..jumpZ..". New coordinates: "..xp+jumpX..", "..yp+jumpY..", "..zp+jumpZ..".")
-        antiFreeze()
+        pcall(log,"Ship is jumping on these axis: "..jumpX..", "..jumpY..", "..jumpZ..". New coordinates: "..xp+jumpX..", "..yp+jumpY..", "..zp+jumpZ..".")
+        g.antiFreeze()
     end
     navContainer:addChild(GUI.button(33, 18, 29, 3, colors.button, colors.textColor2, colors.buttonPressed, colors.textColor2, "Совершить гипер-переход")).onTouch = function()
         ship.command("HYPERDRIVE")
         ship.enable(true)
         local xp,yp,zp = ship.position()
-        log("Ship is switching hyper at these coordinates: "..xp..', '..yp..', '..zp..'.')
-        antiFreeze()
+        pcall(log,"Ship is switching hyper at these coordinates: "..xp..', '..yp..', '..zp..'.')
+        g.antiFreeze()
     end
 end
 
-local function drawInfo()
+g.drawInfo = function()
     local size = ship.getShipSize()
     local assembly = ship.isAssemblyValid()
     local energy = ship.energy()
@@ -396,7 +397,7 @@ local function drawInfo()
     navContainer:addChild(GUI.label(53, 15, 61, 1, colors.textColor, "Верх: "..up))
 end
 
-local function drawRadar()
+g.drawRadar = function()
     if not comp.isAvailable("warpdriveRadar") then warn("Для работы этой функции необходим подключенный варп-радар!","Ошибка!") return end
     navContainer:removeChildren()
     local max = 9999
@@ -443,7 +444,8 @@ local function drawRadar()
         radartable = textBox.lines
     end
 end
-local function drawCrew()
+
+g.drawCrew = function()
     ship.command("SUMMON")
     navContainer:removeChildren()
     local pl = ""
@@ -476,7 +478,8 @@ local function drawCrew()
         table.insert(textBox.lines,players[i])
     end 
 end
-local function drawCloak()
+
+g.drawCloak = function()
     if not comp.isAvailable("warpdriveCloakingCore") then warn("Для работы этой функции необходим подключенный маскировщик!","Ошибка!") return end
     navContainer:removeChildren()
     cloak = comp.warpdriveCloakingCore
@@ -505,7 +508,8 @@ local function drawCloak()
         cloak.enable(true)
     end
 end
-local function drawMap()
+
+g.drawMap = function()
     navContainer:removeChildren()
     navContainer:addChild(GUI.label(2, 2, navContainer.width, navContainer.height, colors.textColor, "Тут типа карта должна быть, ага.")):setAlignment(GUI.ALIGNMENT_HORIZONTAL_CENTER, GUI.ALIGNMENT_VERTICAL_CENTER)
 end
@@ -524,7 +528,7 @@ local tweaks = menu:addContextMenu("Tweaks",0x696969)
 tweaks.colors.default.background = colors.window
 tweaks.colors.transparency.background = 0
 Interstellar:addItem("О программе").onTouch = function()
-    drawAbout()
+    g.drawAbout()
 end
 Interstellar:addItem("Выйти").onTouch = function()
     mainContainer:stopEventHandling()
@@ -533,14 +537,14 @@ Interstellar:addItem("Выйти").onTouch = function()
     require("term").clear()
 end
 contextMenu:addItem("Корабль").onTouch = function()
-    drawShipSettings()
+    g.drawShipSettings()
 end
 contextMenu:addItem("Логгинг").onTouch = function()
-    drawLoggingSettings()
+    g.drawLoggingSettings()
 end
 contextMenu:addSeparator()
 contextMenu:addItem("Обновления").onTouch = function()
-    drawUpdate()
+    g.drawUpdate()
 end
 tweaks:addItem("Включить ядро").onTouch = function() 
     ship.command("IDLE")
@@ -549,7 +553,7 @@ tweaks:addItem("Выключить ядро").onTouch = function()
     ship.command("OFFLINE")
 end
 tweaks:addItem("Включить антифриз").onTouch = function()
-    antiFreeze()
+    g.antiFreeze()
 end
 
 --панель с точками
@@ -559,28 +563,28 @@ end
 --кнопочки
 
 mainContainer:addChild(GUI.button(18,25,8,1,colors.button,colors.background,colors.buttonPressed,colors.background,'Экипаж')).onTouch = function()
-    drawCrew()
+    g.drawCrew()
 end
 mainContainer:addChild(GUI.button(27,25,8,1,colors.button,colors.background,colors.buttonPressed,colors.background,'Прыжок')).onTouch = function()
-    drawJump()
+    g.drawJump()
 end
 mainContainer:addChild(GUI.button(36,25,6,1,colors.button,colors.background,colors.buttonPressed,colors.background,'Инфо')).onTouch = function()
-    drawInfo()
+    g.drawInfo()
 end
 mainContainer:addChild(GUI.button(43,25,7,1,colors.button,colors.background,colors.buttonPressed,colors.background,'Радар')).onTouch = function()
-    drawRadar()
+    g.drawRadar()
 end
 mainContainer:addChild(GUI.button(51,25,12,1,colors.button,colors.background,colors.buttonPressed,colors.background,'Маскировка')).onTouch = function()
-    drawCloak()
+    g.drawCloak()
 end
 mainContainer:addChild(GUI.button(71,25,7,1,colors.button,colors.background,colors.buttonPressed,colors.background,'Карта')).onTouch = function()
-    drawMap()
+    g.drawMap()
 end
 mainContainer:addChild(GUI.button(79,25,2,1,colors.button,colors.background,colors.button,colors.background,''))
 mainContainer:addChild(GUI.button(64,25,6,1,colors.button,colors.background,colors.button,colors.background,''))
 mainContainer:addChild(GUI.button(1,25,16,1,colors.button,colors.background,colors.button,colors.background,''))
-drawMap()
-drawNav()
+g.drawMap()
+g.drawNav()
 -----------------------------------------------------------------------------
 buffer.clear()
 mainContainer:drawOnScreen(true)

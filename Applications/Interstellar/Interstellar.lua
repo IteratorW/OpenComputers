@@ -38,7 +38,7 @@ local colors = {
 
 
 -----
-local application = GUI.application()
+local app = GUI.application()
 local mainContainer = GUI.fullScreenContainer()
 mainContainer:addChild(GUI.panel(1, 1, mainContainer.width, mainContainer.height, colors.background))
 local navContainer = mainContainer:addChild(GUI.container(18,3,62,21))

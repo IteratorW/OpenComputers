@@ -38,6 +38,7 @@ local colors = {
 
 
 -----
+local application = GUI.application()
 local mainContainer = GUI.fullScreenContainer()
 mainContainer:addChild(GUI.panel(1, 1, mainContainer.width, mainContainer.height, colors.background))
 local navContainer = mainContainer:addChild(GUI.container(18,3,62,21))
@@ -587,5 +588,5 @@ g.drawMap()
 g.drawNav()
 -----------------------------------------------------------------------------
 buffer.clear()
-mainContainer:drawOnScreen(true)
-mainContainer:startEventHandling()
+app:draw(true)
+app:start()

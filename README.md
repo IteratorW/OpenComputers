@@ -1,3 +1,3 @@
 # OpenComputers
 Stuff for OpenComputers
-This repository is for OpenComputers stuff.
+Old stuff for OpenComputers, not updating anymore.
